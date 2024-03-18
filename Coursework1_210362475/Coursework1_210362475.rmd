@@ -1,0 +1,191 @@
+---
+title: "Time Series Analysis"
+subtitle: "Using Prophet in R"
+author:
+- name: Shruti Dharmendra Patel 
+date: "16 March 2024"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+---
+
+```{r, echo=FALSE}
+htmltools::img(src = knitr::image_uri("QMlogo.png"), 
+               alt = 'logo', 
+               style = 'position:absolute; top:0; right:0; padding:10px; width:30%;')
+```
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## 1. <span style="color:red;"> Using the co2 dataset </span>
+
+### 1.1 <span style="color:blue;">CO2?</span>
+
+The co2 dataset is a time series of the atmospheric concentrations of CO2, measured in parts per million (ppm), in Mauna Loa. The data has been recorded monthly from 1959 to 1997. The purpose of this project is to use past data to make predictions on the future atmospheric concentrations of carbon dioxide. This would also allow us to look at the trend of the CO2 concentrations to see whether the levels of CO2 have been increasing at an alarming rate.
+
+### 1.2 <span style="color:blue;">Create a data frame</span>
+
+To create a dataframe from the co2 dataset we use data.frame() and to extract the dates from the dataset and create a time series from it we use time(). We then convert this to a a vector of dates using the function yearmon() from the zoo library.
+
+We label the column with dates ds and the column with the co2 concentrations is labelled y.
+```{r}
+co2.df = data.frame(ds=zoo::as.yearmon(time(co2)), y=co2)
+```
+
+### 1.3 <span style="color:blue;">Prophet function</span>
+
+Use the prophet function from the prophet library to fit the model.
+```{r}
+model1 = prophet::prophet(co2.df)
+```
+
+### 1.4 <span style="color:blue;">Future dataframe</span>
+
+The function make_future_dataframe is used to create a dataframe to forecast 8 quarters 
+```{r}
+forecast = prophet::make_future_dataframe(model1, periods=8, freq="quarter")
+```
+
+### 1.5 <span style="color:blue;">Predict</span>
+
+The predict function is used to get the forecast
+```{r}
+prediction = predict(model1, forecast)
+tail(prediction) #gives the last 6 predicted values
+```
+
+### 1.6 <span style="color:blue;">Plot the model and the predicted dataframe</span>
+
+```{r}
+plot(model1,prediction, xlabel = "Year", ylabel = "Atmospheric CO2 Contentrations (ppm)",main="Mauna Loa Atmospheric CO2 Concentration")
+```
+
+From this plot, we can see that the forecasted values (blue line) align closely with the observed values (black points). This implies that the forecasted values are likely to be accurate. 
+
+### 1.7 <span style="color:blue;">*Trendyy*</span>
+
+Let's take a closer look at the trend.
+```{r}
+prophet::prophet_plot_components(model1,prediction)
+```
+
+This shows us the trend and yearly seasonality. The trend shows that the atmospheric CO2 concentrations have an increasing trend. As for seasonality, the atmospheric concentrations of CO2 are higher between March and June.
+
+### 1.6 <span style="color:blue;">To be *linear* or *not* to be *linear*</span>
+
+The increasing trend does not specifically mean that the trend is linear. We can fit the linear, quadratic and cubic polynomials to model the trend of the atmospheric concentration of CO2 and to check whether it is linear. But in this case, we shall simply plot a Residuals versus Fitted graph.
+
+```{r} 
+Model2<- lm(y ~ time(ds), data = co2.df)
+summary(Model2)
+plot(Model2, which = 1) #which=1 to plot the Residuals vs Fitted
+```
+
+The residuals follow a slight U-shaped pattern, therefore, the assumption of linearity is not met. From this plot, we can see that there exists homoscedasticity implying that the variance of the residuals is constant. We could test for the homoscedasticity using the Breusch–Pagan test although it is normally used to test for heteroscedasticity.
+
+Let the null hypothesis be that the variance of the errors is constant.
+```{r}
+library(lmtest)
+bptest(Model2)
+```
+
+The test statistic is 3.6238 and the p-value is 0.05696. Since the p-value is greater than 0.05, we fail to reject the null hypothesis. Therefore there may exist homoscedasticity.
+
+
+Now let's look at another dataset...
+
+
+## 2. <span style="color:red;">Unemployment</span>
+
+*I knoww its tough these days but...oh well life moves on :)*
+
+### 2.1 <span style="color:blue;">What about it??</span>
+
+It's getting harder to find jobs now, so I wanted to perform time series analysis to see just how bad it is. Since the combined landmass of North and South America is larger than any other continent, we shall look at the levels of unemployment there. More specifically, in the U.S.A (which I know is just part of North America but just go with it).
+
+I got the dataset from https://fred.stlouisfed.org/series/UNEMPLOY. The data features 2 variables: the date and the levels of unemployment in the U.S.A.The dates range from January 1960 to January 2022. The data is recorded monthly on the 1st of each month. The number of people unemployed is measured in thousands of persons.
+
+```{r, echo=FALSE}
+#I downloaded the dataset as an excel file and have attached it in the folder. I also deleted some parts at the top of the excel sheet but this will not affect any of the calculations done as it was text. I also shortened the range to be from 1/1/1960 to 1/1/2022 because I thought the file would be too large if I included all the data.
+```
+
+### 2.2 <span style="color:blue;">Idem</span>
+
+Following similar steps as before I will forecast the data with a few changes to the formulas.
+
+a) Create a data frame
+```{r, echo=FALSE}
+library(readxl)
+UNEMPLOY <- read_excel("C:\\Users\\shrut\\OneDrive\\Desktop\\Coursework1_210362475\\UNEMPLOY.xls")
+View(UNEMPLOY)
+```
+
+The dataset is already in the format of YYYY-MM-DD so I didn't use zoo::as.yearmon(time...) to extract the dates and covert it to a vector. I relabelled the columns from observation_date and UNEMPLOY to ds and y respectively.
+```{r}
+unemploy.df <- data.frame(ds = UNEMPLOY$observation_date, y=UNEMPLOY$UNEMPLOY)
+```
+
+```{r}
+library(dygraphs)
+dygraph(unemploy.df, main = "Unemployment levels in the U.S.A", xlab="Year", ylab="Unemployment levels (thousands of persons)") %>% 
+  dyRangeSelector(dateWindow = c("1960-01-01", "2022-01-01"))
+```
+
+This dygraph shows the Unemployment levels in the U.S.A. It can be adjusted to zoom into a particular range of years or months.
+
+b) Prophet function
+
+This time I added in the daily and weekly seasonalities. 
+```{r}
+model3= prophet::prophet(unemploy.df,weekly.seasonality = TRUE, daily.seasonality = TRUE) 
+```
+
+c) Future dataframe
+
+This will create a datafame to forecast monthly for 2 years
+```{r}
+forecast3= prophet::make_future_dataframe(model3, periods=24, freq="month")
+```
+
+d) Predict
+```{r}
+prediction3 = predict(model3, forecast3)
+tail(prediction3) #gives the last 6 predicted values
+```
+
+e) Plot the model and the predicted dataframe
+```{r}
+plot(model3,prediction3, xlabel = "Year", ylabel = "Unemployment levels (thousands of persons)", main="Unemployment levels in the U.S.A")
+```
+
+From the graph we can see peaks at certain times and this could be due to reasons such as recession. For example, the country battled recession in 1980 and increased military spending in 1983 may have potentially led to increased unemployment in non-military areas. The high unemployment levels between 2009 and 2011 are the aftermath of the global financial crisis. The only anomaly would be the soaring unemployment levels between 2020 and 2021 that were a consequence of the Covid-19 pandemic. Looking at the observed data, there is a general pattern of increasing unemployment levels, after which they start to fall then rise again (cyclical unemployment)
+The predicted values don't closely follow the observed values but they do follow the general pattern of rising and falling unemployment levels as the observed data.
+
+f) Trend
+```{r}
+prophet::prophet_plot_components(model3,prediction3)
+```
+
+This shows us the trend, weekly, yearly and daily seasonality. 
+The trend shows that the unemployment levels in the U.S.A have an increasing trend. As for the seasonalities, more people are unemployed on a Wednesday, around March and it's any hour of the day that offices are normally open.
+
+g) To be *linear* or *not* to be *linear*
+
+Let's try the Linear Trend for this.
+```{r}
+Model4 <- lm(y~ds, data=unemploy.df)
+summary(Model4)
+plot(unemploy.df$ds, unemploy.df$y, type="p", xlab="Year", ylab="Unemployment levels (thousands of persons)")
+points(unemploy.df$ds, fitted(Model4), type="l")
+```
+
+Can't say that the linearity assumption has been met without more tests but the linear model does follow an increasing trend like the observed data.
+
+
+*Another one bites the dust!*
+
+
+
